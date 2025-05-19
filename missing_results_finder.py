@@ -6,12 +6,13 @@ def extract_filename(path):
     """Extract just the filename from the full path."""
     return os.path.basename(path.strip())
 
-def check_missing_results(search_terms_file, target_file):
+def check_missing_results(search_terms_file, target_file, show_found=False):
     # Read search terms from the first file
     with open(search_terms_file, 'r') as f:
         search_terms = [line.strip() for line in f.readlines() if line.strip()]
     
-    print(f"Loaded {len(search_terms)} search terms from {search_terms_file}")
+    total_search_terms = len(search_terms)
+    print(f"Loaded {total_search_terms} search terms from {search_terms_file}")
     
     # Read the content of the target file
     with open(target_file, 'r', encoding='utf-8') as f:
@@ -37,26 +38,65 @@ def check_missing_results(search_terms_file, target_file):
         else:
             found_terms.append(term)
     
-    # Print the results
-    print(f"\nSummary: {len(found_terms)} results found, {len(missing_terms)} results missing")
+    # Count actual terms in lists to ensure no duplication
+    actual_missing = len(missing_terms)
+    actual_found = len(found_terms)
+    total_processed = actual_missing + actual_found
     
-    if missing_terms:
-        print(f"\nThe following {len(missing_terms)} search terms had no results in the target file:")
-        for term in missing_terms:
-            print(term)
+    # Print the results with clear counts
+    print(f"\nProcessed {total_search_terms} terms:")
+    print(f"- Found: {actual_found} terms")
+    print(f"- Missing: {actual_missing} terms")
+    
+    # Detailed verification for count discrepancies
+    if total_processed != total_search_terms:
+        print(f"\nWARNING: Count discrepancy detected!")
+        print(f"Total processed ({total_processed}) doesn't match input terms ({total_search_terms})")
+        
+        # Check for duplicate entries in search_terms
+        unique_search_terms = set(search_terms)
+        if len(unique_search_terms) != total_search_terms:
+            print(f"Duplicate entries found in search terms: {total_search_terms - len(unique_search_terms)}")
+        
+        # Check for duplicate entries in result lists
+        unique_missing = set(missing_terms)
+        unique_found = set(found_terms)
+        if len(unique_missing) != actual_missing:
+            print(f"Duplicate entries found in missing terms: {actual_missing - len(unique_missing)}")
+        if len(unique_found) != actual_found:
+            print(f"Duplicate entries found in found terms: {actual_found - len(unique_found)}")
+    
+    # Display results based on user preference
+    if show_found:
+        if found_terms:
+            print(f"\nThe following {actual_found} terms had results in the target file:")
+            for term in found_terms:
+                print(term)
+        else:
+            print("\nNo search terms had results in the target file.")
     else:
-        print("\nAll search terms had results in the target file.")
+        if missing_terms:
+            print(f"\nThe following {actual_missing} terms had no results in the target file:")
+            for term in missing_terms:
+                print(term)
+        else:
+            print("\nAll search terms had results in the target file.")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python missing_results_finder.py <search_terms_file> <target_file>")
+    if len(sys.argv) < 3 or len(sys.argv) > 4:
+        print("Usage: python missing_results_finder.py <search_terms_file> <target_file> [show_found]")
+        print("  Add 'show_found' as a third argument to display found results instead of missing ones")
         sys.exit(1)
     
     search_terms_file = sys.argv[1]
     target_file = sys.argv[2]
+    show_found = False
+    
+    if len(sys.argv) == 4 and sys.argv[3].lower() in ['show_found', 'found', 'true', 'yes', '1']:
+        show_found = True
     
     try:
-        check_missing_results(search_terms_file, target_file)
+        check_missing_results(search_terms_file, target_file, show_found)
     except Exception as e:
         print(f"Error: {str(e)}")
         sys.exit(1) 
