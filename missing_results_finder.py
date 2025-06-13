@@ -82,11 +82,42 @@ def check_missing_results(search_terms_file, target_file, show_found=False):
         else:
             print("\nAll search terms had results in the target file.")
 
+def file_comparison():
+    source_dir = str(input("Enter the source directory for comparison: "))
+    source_files = str(input("Enter the range of files to compare (ascending order): "))
+    source_files = source_files.split(';')
+    source_dir_files = []
+    source_comparison = []
+    destination_comparison = []
+
+    try:
+        for file in os.listdir(source_dir):
+            source_dir_files.append(file)
+            check_missing_results(search_terms_file, target_file, show_found)
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        sys.exit(1)
+
+    for file in source_files:
+        file_range = file.split('-')
+        start, end = 0
+        if(len(file_range) == 2):
+            start = source_dir_files.index(file_range[0])
+            end = source_dir_files.index(file_range[1])
+            for i in (end - start):
+                source_comparison.append(source_dir_files[start:end])
+        
+        for file in source_dir_files[start:end]:
+            pass
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3 or len(sys.argv) > 4:
+    if len(sys.argv) > 4:
         print("Usage: python missing_results_finder.py <search_terms_file> <target_file> [show_found]")
         print("  Add 'show_found' as a third argument to display found results instead of missing ones")
         sys.exit(1)
+
+    if len(sys.argv) < 3:
+        file_comparison()
     
     search_terms_file = sys.argv[1]
     target_file = sys.argv[2]
