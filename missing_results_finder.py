@@ -2,6 +2,16 @@ import sys
 import os
 import re
 
+def natural_sort_key(text):
+    """
+    Generate a key for natural sorting that matches Windows File Explorer behavior.
+    Converts numbers in strings to integers for proper numeric sorting.
+    """
+    def convert(text_part):
+        return int(text_part) if text_part.isdigit() else text_part.lower()
+    
+    return [convert(c) for c in re.split(r'(\d+)', text)]
+
 def extract_filename(path):
     """Extract just the filename from the full path."""
     return os.path.basename(path.strip())
@@ -141,10 +151,10 @@ def file_comparison(debug=False):
                 print(f"Error: '{directory_path}' is not a valid directory.")
                 return None
             
-            # Get all files (not directories) and sort alphabetically
+            # Get all files (not directories) and sort naturally (like Windows Explorer)
             all_items = os.listdir(directory_path)
             files = [f for f in all_items if os.path.isfile(os.path.join(directory_path, f))]
-            files.sort()
+            files.sort(key=natural_sort_key)
             return files
         except Exception as e:
             print(f"Error reading directory '{directory_path}': {str(e)}")
