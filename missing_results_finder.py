@@ -123,14 +123,14 @@ def file_comparison():
                     start_filename = start_filename.strip()
                     end_filename = end_filename.strip()
                     
-                    # Find the indices of start and end filenames
+                    # Find the indices of start and end filenames (case-insensitive)
                     start_idx = None
                     end_idx = None
                     
                     for i, filename in enumerate(files):
-                        if filename == start_filename:
+                        if filename.lower() == start_filename.lower():
                             start_idx = i + 1  # Convert to 1-based
-                        if filename == end_filename:
+                        if filename.lower() == end_filename.lower():
                             end_idx = i + 1    # Convert to 1-based
                     
                     if start_idx is None:
@@ -163,10 +163,10 @@ def file_comparison():
                 # Handle single filename or number
                 part = part.strip()
                 
-                # Try as filename first
+                # Try as filename first (case-insensitive)
                 found_as_filename = False
                 for i, filename in enumerate(files):
-                    if filename == part:
+                    if filename.lower() == part.lower():
                         selected_indices.add(i + 1)  # Convert to 1-based
                         found_as_filename = True
                         break
