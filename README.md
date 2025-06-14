@@ -4,8 +4,10 @@ A simple but effective Python utility that helps you identify which items from a
 
 ## Usage
 
+### Command Line Mode (File-based)
+
 ```
-python missing_results_finder.py <search_terms_file> <target_file> [show_found]
+python missing_results_finder.py <search_terms_file> <target_file> [show_found] [--debug]
 ```
 
 Where:
@@ -13,6 +15,50 @@ Where:
 - `<target_file>`: The file to search against
 - `[show_found]`: Optional parameter to display found results instead of missing ones
   (Use 'show_found', 'found', 'true', 'yes', or '1')
+- `[--debug]`: Optional flag to show verbose output
+
+### Interactive Mode (Directory-based)
+
+```
+python missing_results_finder.py [--debug]
+```
+
+When run without file arguments, the script enters interactive mode where you can:
+1. **Select source directory** and choose files using flexible selection methods
+2. **Select destination directory** and choose comparison method
+3. **Compare file lists** directly without creating temporary files
+
+#### File Selection Methods
+
+The interactive mode supports multiple ways to select files:
+
+- **By number**: `1, 5, 10` (select files by their position in the sorted list)
+- **By filename**: `myfile.mp3, data.csv` (case-insensitive)
+- **By range**: `250606_001.mp3-250612_005.mp3` (all files alphabetically between start and end)
+- **Mixed selection**: `1, myfile.mp3, start_file.txt-end_file.txt, 20`
+- **Multiple selections**: Use semicolons (`;`) to separate different selections
+
+#### Interactive Workflow Options
+
+**Option 1: Source-based comparison**
+1. Select files from source directory
+2. Choose destination directory
+3. Compare to see which source files are missing from destination
+
+**Option 2: Destination-based comparison**
+1. Skip source file selection (press Enter)
+2. Specify files you're looking for in destination selection
+3. Compare to see which specified files are missing from destination
+
+#### Debug Mode
+
+Use `--debug` flag for verbose output including:
+- Full file listings with numbers
+- Detailed selection feedback
+- Warning and note messages
+- Complete file lists in results
+
+Without `--debug`, output is clean and minimal, showing only counts and essential information.
 
 ## How It Works
 
@@ -53,7 +99,9 @@ In my specific case, I discovered that out of 60 video files, 17 hadn't been imp
 
 ## Example Output
 
-### Finding missing results (default):
+### Command Line Mode
+
+#### Finding missing results (default):
 ```
 Loaded 60 search terms from File List.txt
 Loaded target file Files Timeline.xml (844,000 characters)
@@ -68,7 +116,7 @@ C:\Users\Joseph\Desktop\2025-04-01 00-16-16.mp4
 ...
 ```
 
-### Finding items with results (using show_found):
+#### Finding items with results (using show_found):
 ```
 Loaded 60 search terms from File List.txt
 Loaded target file Files Timeline.xml (844,000 characters)
@@ -81,6 +129,56 @@ The following 43 terms had results in the target file:
 C:\Users\Joseph\Desktop\2025-03-22 02-09-19.mp4
 C:\Users\Joseph\Desktop\2025-03-23 03-40-35.mp4
 ...
+```
+
+### Interactive Mode
+
+#### Example session (normal output):
+```
+=== Source Directory Selection ===
+Enter source directory path: C:\Videos\Source
+
+Found 150 files. Use --debug to see full list.
+
+File selection format:
+- Single files by number: 1, 5, 10
+- Single files by name: filename.txt, data.csv
+- Ranges by filename: 250606_001-250612_005
+- Mixed: 1, filename.txt, start_file-end_file, 20
+- Use semicolons (;) to separate multiple selections
+- Ranges include all files alphabetically between start and end filenames
+
+Enter source file selection: 250606_001.mp3-250612_005.mp3; missing_file.mp3
+
+Selected 25 source files (use --debug to see list)
+
+=== Destination Directory Selection ===
+Enter destination directory path: C:\Videos\Timeline
+
+Found 120 files. Use --debug to see full list.
+
+Use all destination files for comparison? (Y/n): y
+Using all 120 destination files for comparison.
+
+=== Comparison Options ===
+Show found files instead of missing? (y/N): 
+
+=== Comparing Files ===
+Source: 25 files from 'C:\Videos\Source'
+Target: 120 files from 'C:\Videos\Timeline'
+
+Comparing 25 search terms against 120 target terms
+
+Processed 25 terms:
+- Found: 20 terms
+- Missing: 5 terms
+
+The following 5 terms had no results in the target:
+250607_003.mp3
+250610_001.mp3
+missing_file.mp3
+250611_005.mp3
+250612_002.mp3
 ```
 
 ## Other Potential Use Cases
