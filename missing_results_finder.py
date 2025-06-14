@@ -82,7 +82,7 @@ def check_missing_results(search_terms_file, target_file, show_found=False):
         else:
             print("\nAll search terms had results in the target file.")
 
-def file_comparison():
+def file_comparison(debug=False):
     """Interactive file comparison using directory listings and file ranges."""
     
     def get_directory_files(directory_path):
@@ -103,9 +103,12 @@ def file_comparison():
     
     def display_files_with_numbers(files):
         """Display files with their position numbers."""
-        print(f"\nFound {len(files)} files:")
-        for i, filename in enumerate(files, 1):
-            print(f"{i:3d}: {filename}")
+        if debug:
+            print(f"\nFound {len(files)} files:")
+            for i, filename in enumerate(files, 1):
+                print(f"{i:3d}: {filename}")
+        else:
+            print(f"\nFound {len(files)} files. Use --debug to see full list.")
     
     def parse_file_selection(selection_str, files, allow_missing=False):
         """Parse semicolon-separated file selections with range support."""
@@ -136,16 +139,20 @@ def file_comparison():
                     if start_idx is None:
                         if allow_missing:
                             selected_filenames.append(start_filename)
-                            print(f"Note: Start filename '{start_filename}' will be checked in comparison")
+                            if debug:
+                                print(f"Note: Start filename '{start_filename}' will be checked in comparison")
                         else:
-                            print(f"Warning: Start filename '{start_filename}' not found in directory")
+                            if debug:
+                                print(f"Warning: Start filename '{start_filename}' not found in directory")
                         continue
                     if end_idx is None:
                         if allow_missing:
                             selected_filenames.append(end_filename)
-                            print(f"Note: End filename '{end_filename}' will be checked in comparison")
+                            if debug:
+                                print(f"Note: End filename '{end_filename}' will be checked in comparison")
                         else:
-                            print(f"Warning: End filename '{end_filename}' not found in directory")
+                            if debug:
+                                print(f"Warning: End filename '{end_filename}' not found in directory")
                         continue
                     
                     if start_idx > end_idx:
@@ -154,7 +161,8 @@ def file_comparison():
                     
                     # Add all indices in range (inclusive)
                     selected_indices.update(range(start_idx, end_idx + 1))
-                    print(f"Range '{start_filename}' to '{end_filename}': selected {end_idx - start_idx + 1} files")
+                    if debug:
+                        print(f"Range '{start_filename}' to '{end_filename}': selected {end_idx - start_idx + 1} files")
                     
                 except ValueError:
                     print(f"Warning: Invalid range format '{part}' (expected format: 'start_filename-end_filename')")
@@ -183,9 +191,11 @@ def file_comparison():
                         if allow_missing:
                             # Treat as a filename that should be checked in comparison
                             selected_filenames.append(part)
-                            print(f"Note: '{part}' will be checked in comparison")
+                            if debug:
+                                print(f"Note: '{part}' will be checked in comparison")
                         else:
-                            print(f"Warning: '{part}' is neither a valid filename nor a valid number")
+                            if debug:
+                                print(f"Warning: '{part}' is neither a valid filename nor a valid number")
                         continue
         
         return sorted(selected_indices), selected_filenames
@@ -237,9 +247,10 @@ def file_comparison():
             print("No valid files selected. Please try again.")
     
     if source_selected_files:
-        print(f"\nSelected {len(source_selected_files)} source files:")
-        for filename in source_selected_files:
-            print(f"  - {filename}")
+        print(f"\nSelected {len(source_selected_files)} source files" + (" (use --debug to see list)" if not debug else ":"))
+        if debug:
+            for filename in source_selected_files:
+                print(f"  - {filename}")
     
     # Get destination directory
     print("\n=== Destination Directory Selection ===")
@@ -283,9 +294,10 @@ def file_comparison():
                     print("No valid files selected. Please try again.")
             
             dest_selected_files = get_selected_filenames(dest_files, dest_indices)
-            print(f"\nSelected {len(dest_selected_files)} destination files:")
-            for filename in dest_selected_files:
-                print(f"  - {filename}")
+            print(f"\nSelected {len(dest_selected_files)} destination files" + (" (use --debug to see list)" if not debug else ":"))
+            if debug:
+                for filename in dest_selected_files:
+                    print(f"  - {filename}")
     else:
         # No source files selected, so we need to specify what we're looking for from destination
         print(f"\nDestination directory contains {len(dest_files)} files.")
@@ -309,9 +321,10 @@ def file_comparison():
         source_selected_files.extend(dest_missing_files)
         dest_selected_files = dest_files
         
-        print(f"\nLooking for {len(source_selected_files)} files in destination:")
-        for filename in source_selected_files:
-            print(f"  - {filename}")
+        print(f"\nLooking for {len(source_selected_files)} files in destination" + (" (use --debug to see list)" if not debug else ":"))
+        if debug:
+            for filename in source_selected_files:
+                print(f"  - {filename}")
         print(f"Searching within all {len(dest_selected_files)} destination files.")
     
     # Create temporary files with the selected filenames for comparison
@@ -351,13 +364,19 @@ def file_comparison():
             pass  # Ignore cleanup errors
 
 if __name__ == "__main__":
+    # Check for debug flag
+    debug = '--debug' in sys.argv
+    if debug:
+        sys.argv.remove('--debug')  # Remove it so it doesn't interfere with other argument parsing
+    
     if len(sys.argv) > 4:
-        print("Usage: python missing_results_finder.py <search_terms_file> <target_file> [show_found]")
+        print("Usage: python missing_results_finder.py <search_terms_file> <target_file> [show_found] [--debug]")
         print("  Add 'show_found' as a third argument to display found results instead of missing ones")
+        print("  Add '--debug' to show verbose output during file selection")
         sys.exit(1)
 
     if len(sys.argv) < 3:
-        file_comparison()
+        file_comparison(debug)
         sys.exit(0)  # Exit after interactive comparison
     
     search_terms_file = sys.argv[1]
