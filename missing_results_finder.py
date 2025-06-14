@@ -83,32 +83,217 @@ def check_missing_results(search_terms_file, target_file, show_found=False):
             print("\nAll search terms had results in the target file.")
 
 def file_comparison():
-    source_dir = str(input("Enter the source directory for comparison: "))
-    source_files = str(input("Enter the range of files to compare (ascending order): "))
-    source_files = source_files.split(';')
-    source_dir_files = []
-    source_comparison = []
-    destination_comparison = []
-
-    try:
-        for file in os.listdir(source_dir):
-            source_dir_files.append(file)
-            check_missing_results(search_terms_file, target_file, show_found)
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        sys.exit(1)
-
-    for file in source_files:
-        file_range = file.split('-')
-        start, end = 0
-        if(len(file_range) == 2):
-            start = source_dir_files.index(file_range[0])
-            end = source_dir_files.index(file_range[1])
-            for i in (end - start):
-                source_comparison.append(source_dir_files[start:end])
+    """Interactive file comparison using directory listings and file ranges."""
+    
+    def get_directory_files(directory_path):
+        """Get sorted list of files in a directory."""
+        try:
+            if not os.path.isdir(directory_path):
+                print(f"Error: '{directory_path}' is not a valid directory.")
+                return None
+            
+            # Get all files (not directories) and sort alphabetically
+            all_items = os.listdir(directory_path)
+            files = [f for f in all_items if os.path.isfile(os.path.join(directory_path, f))]
+            files.sort()
+            return files
+        except Exception as e:
+            print(f"Error reading directory '{directory_path}': {str(e)}")
+            return None
+    
+    def display_files_with_numbers(files):
+        """Display files with their position numbers."""
+        print(f"\nFound {len(files)} files:")
+        for i, filename in enumerate(files, 1):
+            print(f"{i:3d}: {filename}")
+    
+    def parse_file_selection(selection_str, files):
+        """Parse semicolon-separated file selections with range support."""
+        selected_indices = set()
         
-        for file in source_dir_files[start:end]:
-            pass
+        # Split by semicolon and process each part
+        parts = [part.strip() for part in selection_str.split(';') if part.strip()]
+        
+        for part in parts:
+            if '-' in part:
+                # Handle range (e.g., "250606_001-250612_005")
+                try:
+                    start_filename, end_filename = part.split('-', 1)
+                    start_filename = start_filename.strip()
+                    end_filename = end_filename.strip()
+                    
+                    # Find the indices of start and end filenames
+                    start_idx = None
+                    end_idx = None
+                    
+                    for i, filename in enumerate(files):
+                        if filename == start_filename:
+                            start_idx = i + 1  # Convert to 1-based
+                        if filename == end_filename:
+                            end_idx = i + 1    # Convert to 1-based
+                    
+                    if start_idx is None:
+                        print(f"Warning: Start filename '{start_filename}' not found in directory")
+                        continue
+                    if end_idx is None:
+                        print(f"Warning: End filename '{end_filename}' not found in directory")
+                        continue
+                    
+                    if start_idx > end_idx:
+                        print(f"Warning: Start file '{start_filename}' comes after end file '{end_filename}' in alphabetical order")
+                        continue
+                    
+                    # Add all indices in range (inclusive)
+                    selected_indices.update(range(start_idx, end_idx + 1))
+                    print(f"Range '{start_filename}' to '{end_filename}': selected {end_idx - start_idx + 1} files")
+                    
+                except ValueError:
+                    print(f"Warning: Invalid range format '{part}' (expected format: 'start_filename-end_filename')")
+                    continue
+            else:
+                # Handle single filename or number
+                part = part.strip()
+                
+                # Try as filename first
+                found_as_filename = False
+                for i, filename in enumerate(files):
+                    if filename == part:
+                        selected_indices.add(i + 1)  # Convert to 1-based
+                        found_as_filename = True
+                        break
+                
+                # If not found as filename, try as number
+                if not found_as_filename:
+                    try:
+                        num = int(part)
+                        if num < 1 or num > len(files):
+                            print(f"Warning: Invalid file number '{num}' (valid range: 1-{len(files)})")
+                            continue
+                        selected_indices.add(num)
+                    except ValueError:
+                        print(f"Warning: '{part}' is neither a valid filename nor a valid number")
+                        continue
+        
+        return sorted(selected_indices)
+    
+    def get_selected_filenames(files, selected_indices):
+        """Get actual filenames based on selected indices."""
+        return [files[i-1] for i in selected_indices]  # Convert to 0-based indexing
+    
+    # Get source directory
+    print("=== Source Directory Selection ===")
+    while True:
+        source_dir = input("Enter source directory path: ").strip()
+        if not source_dir:
+            print("Please enter a valid directory path.")
+            continue
+        
+        source_files = get_directory_files(source_dir)
+        if source_files is not None:
+            break
+    
+    if not source_files:
+        print("No files found in source directory.")
+        return
+    
+    # Display source files and get selection
+    display_files_with_numbers(source_files)
+    print("\nFile selection format:")
+    print("- Single files by number: 1, 5, 10")
+    print("- Single files by name: filename.txt, data.csv")
+    print("- Ranges by filename: 250606_001-250612_005")
+    print("- Mixed: 1, filename.txt, start_file-end_file, 20")
+    print("- Use semicolons (;) to separate multiple selections")
+    print("- Ranges include all files alphabetically between start and end filenames")
+    
+    while True:
+        source_selection = input("\nEnter source file selection: ").strip()
+        if not source_selection:
+            print("Please enter a file selection.")
+            continue
+        
+        source_indices = parse_file_selection(source_selection, source_files)
+        if source_indices:
+            break
+        else:
+            print("No valid files selected. Please try again.")
+    
+    source_selected_files = get_selected_filenames(source_files, source_indices)
+    print(f"\nSelected {len(source_selected_files)} source files:")
+    for filename in source_selected_files:
+        print(f"  - {filename}")
+    
+    # Get destination directory
+    print("\n=== Destination Directory Selection ===")
+    while True:
+        dest_dir = input("Enter destination directory path: ").strip()
+        if not dest_dir:
+            print("Please enter a valid directory path.")
+            continue
+        
+        dest_files = get_directory_files(dest_dir)
+        if dest_files is not None:
+            break
+    
+    if not dest_files:
+        print("No files found in destination directory.")
+        return
+    
+    # Display destination files and get selection
+    display_files_with_numbers(dest_files)
+    
+    while True:
+        dest_selection = input("\nEnter destination file selection: ").strip()
+        if not dest_selection:
+            print("Please enter a file selection.")
+            continue
+        
+        dest_indices = parse_file_selection(dest_selection, dest_files)
+        if dest_indices:
+            break
+        else:
+            print("No valid files selected. Please try again.")
+    
+    dest_selected_files = get_selected_filenames(dest_files, dest_indices)
+    print(f"\nSelected {len(dest_selected_files)} destination files:")
+    for filename in dest_selected_files:
+        print(f"  - {filename}")
+    
+    # Create temporary files with the selected filenames for comparison
+    import tempfile
+    
+    try:
+        # Create temporary file with source filenames
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as source_temp:
+            for filename in source_selected_files:
+                source_temp.write(filename + '\n')
+            source_temp_path = source_temp.name
+        
+        # Create temporary file with destination filenames  
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as dest_temp:
+            for filename in dest_selected_files:
+                dest_temp.write(filename + '\n')
+            dest_temp_path = dest_temp.name
+        
+        # Ask user if they want to see found or missing results
+        print("\n=== Comparison Options ===")
+        show_found_input = input("Show found files instead of missing? (y/N): ").strip().lower()
+        show_found = show_found_input in ['y', 'yes', '1', 'true']
+        
+        print(f"\n=== Comparing Files ===")
+        print(f"Source: {len(source_selected_files)} files from '{source_dir}'")
+        print(f"Target: {len(dest_selected_files)} files from '{dest_dir}'")
+        
+        # Use existing comparison logic
+        check_missing_results(source_temp_path, dest_temp_path, show_found)
+        
+    finally:
+        # Clean up temporary files
+        try:
+            os.unlink(source_temp_path)
+            os.unlink(dest_temp_path)
+        except:
+            pass  # Ignore cleanup errors
 
 if __name__ == "__main__":
     if len(sys.argv) > 4:
