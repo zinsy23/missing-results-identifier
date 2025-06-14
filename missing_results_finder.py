@@ -107,9 +107,10 @@ def file_comparison():
         for i, filename in enumerate(files, 1):
             print(f"{i:3d}: {filename}")
     
-    def parse_file_selection(selection_str, files):
+    def parse_file_selection(selection_str, files, allow_missing=False):
         """Parse semicolon-separated file selections with range support."""
         selected_indices = set()
+        selected_filenames = []  # Track actual filenames for missing file support
         
         # Split by semicolon and process each part
         parts = [part.strip() for part in selection_str.split(';') if part.strip()]
@@ -133,10 +134,18 @@ def file_comparison():
                             end_idx = i + 1    # Convert to 1-based
                     
                     if start_idx is None:
-                        print(f"Warning: Start filename '{start_filename}' not found in directory")
+                        if allow_missing:
+                            selected_filenames.append(start_filename)
+                            print(f"Note: Start filename '{start_filename}' will be checked in comparison")
+                        else:
+                            print(f"Warning: Start filename '{start_filename}' not found in directory")
                         continue
                     if end_idx is None:
-                        print(f"Warning: End filename '{end_filename}' not found in directory")
+                        if allow_missing:
+                            selected_filenames.append(end_filename)
+                            print(f"Note: End filename '{end_filename}' will be checked in comparison")
+                        else:
+                            print(f"Warning: End filename '{end_filename}' not found in directory")
                         continue
                     
                     if start_idx > end_idx:
@@ -171,10 +180,15 @@ def file_comparison():
                             continue
                         selected_indices.add(num)
                     except ValueError:
-                        print(f"Warning: '{part}' is neither a valid filename nor a valid number")
+                        if allow_missing:
+                            # Treat as a filename that should be checked in comparison
+                            selected_filenames.append(part)
+                            print(f"Note: '{part}' will be checked in comparison")
+                        else:
+                            print(f"Warning: '{part}' is neither a valid filename nor a valid number")
                         continue
         
-        return sorted(selected_indices)
+        return sorted(selected_indices), selected_filenames
     
     def get_selected_filenames(files, selected_indices):
         """Get actual filenames based on selected indices."""
@@ -207,21 +221,25 @@ def file_comparison():
     print("- Ranges include all files alphabetically between start and end filenames")
     
     while True:
-        source_selection = input("\nEnter source file selection: ").strip()
+        source_selection = input("\nEnter source file selection (or press Enter to skip and specify files from destination): ").strip()
         if not source_selection:
-            print("Please enter a file selection.")
-            continue
+            print("Skipping source file selection - you'll specify files from destination instead.")
+            source_selected_files = []
+            break
         
-        source_indices = parse_file_selection(source_selection, source_files)
-        if source_indices:
+        source_indices, source_missing_files = parse_file_selection(source_selection, source_files, allow_missing=True)
+        if source_indices or source_missing_files:
+            source_selected_files = get_selected_filenames(source_files, source_indices)
+            # Add any missing files that were specified by name
+            source_selected_files.extend(source_missing_files)
             break
         else:
             print("No valid files selected. Please try again.")
     
-    source_selected_files = get_selected_filenames(source_files, source_indices)
-    print(f"\nSelected {len(source_selected_files)} source files:")
-    for filename in source_selected_files:
-        print(f"  - {filename}")
+    if source_selected_files:
+        print(f"\nSelected {len(source_selected_files)} source files:")
+        for filename in source_selected_files:
+            print(f"  - {filename}")
     
     # Get destination directory
     print("\n=== Destination Directory Selection ===")
@@ -239,25 +257,62 @@ def file_comparison():
         print("No files found in destination directory.")
         return
     
-    # Display destination files and get selection
-    display_files_with_numbers(dest_files)
-    
-    while True:
-        dest_selection = input("\nEnter destination file selection: ").strip()
-        if not dest_selection:
-            print("Please enter a file selection.")
-            continue
+    # Handle destination file selection based on whether source files were selected
+    if source_selected_files:
+        # Source files were selected, so destination can be all files or specific selection
+        print(f"\nDestination directory contains {len(dest_files)} files.")
+        use_all_dest = input("Use all destination files for comparison? (Y/n): ").strip().lower()
         
-        dest_indices = parse_file_selection(dest_selection, dest_files)
-        if dest_indices:
-            break
+        if use_all_dest in ['', 'y', 'yes', '1', 'true']:
+            dest_selected_files = dest_files
+            print(f"Using all {len(dest_selected_files)} destination files for comparison.")
         else:
-            print("No valid files selected. Please try again.")
-    
-    dest_selected_files = get_selected_filenames(dest_files, dest_indices)
-    print(f"\nSelected {len(dest_selected_files)} destination files:")
-    for filename in dest_selected_files:
-        print(f"  - {filename}")
+            # Display destination files and get selection
+            display_files_with_numbers(dest_files)
+            
+            while True:
+                dest_selection = input("\nEnter destination file selection: ").strip()
+                if not dest_selection:
+                    print("Please enter a file selection.")
+                    continue
+                
+                dest_indices, dest_missing_files = parse_file_selection(dest_selection, dest_files, allow_missing=False)
+                if dest_indices:
+                    break
+                else:
+                    print("No valid files selected. Please try again.")
+            
+            dest_selected_files = get_selected_filenames(dest_files, dest_indices)
+            print(f"\nSelected {len(dest_selected_files)} destination files:")
+            for filename in dest_selected_files:
+                print(f"  - {filename}")
+    else:
+        # No source files selected, so we need to specify what we're looking for from destination
+        print(f"\nDestination directory contains {len(dest_files)} files.")
+        print("Since no source files were selected, specify the files you're looking for:")
+        display_files_with_numbers(dest_files)
+        
+        while True:
+            dest_selection = input("\nEnter files to search for (can include files not in destination): ").strip()
+            if not dest_selection:
+                print("Please enter a file selection.")
+                continue
+            
+            dest_indices, dest_missing_files = parse_file_selection(dest_selection, dest_files, allow_missing=True)
+            if dest_indices or dest_missing_files:
+                break
+            else:
+                print("No valid files selected. Please try again.")
+        
+        # In this case, the "search terms" are what we specified, and "target" is all dest files
+        source_selected_files = get_selected_filenames(dest_files, dest_indices)
+        source_selected_files.extend(dest_missing_files)
+        dest_selected_files = dest_files
+        
+        print(f"\nLooking for {len(source_selected_files)} files in destination:")
+        for filename in source_selected_files:
+            print(f"  - {filename}")
+        print(f"Searching within all {len(dest_selected_files)} destination files.")
     
     # Create temporary files with the selected filenames for comparison
     import tempfile
@@ -303,6 +358,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 3:
         file_comparison()
+        sys.exit(0)  # Exit after interactive comparison
     
     search_terms_file = sys.argv[1]
     target_file = sys.argv[2]
