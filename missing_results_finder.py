@@ -82,6 +82,55 @@ def check_missing_results(search_terms_file, target_file, show_found=False):
         else:
             print("\nAll search terms had results in the target file.")
 
+def perform_direct_comparison(search_terms, target_terms, show_found=False):
+    """Perform comparison directly with in-memory lists instead of files."""
+    total_search_terms = len(search_terms)
+    print(f"Comparing {total_search_terms} search terms against {len(target_terms)} target terms")
+    
+    missing_terms = []
+    found_terms = []
+    
+    # Convert target terms to lowercase for case-insensitive comparison
+    target_terms_lower = [term.lower() for term in target_terms]
+    
+    # Check each search term
+    for term in search_terms:
+        # First try the full term (case-insensitive)
+        if term.lower() in target_terms_lower:
+            found_terms.append(term)
+        else:
+            # Try just the filename part
+            filename = extract_filename(term)
+            if filename.lower() in target_terms_lower:
+                found_terms.append(term)
+            else:
+                missing_terms.append(term)
+    
+    # Count actual terms in lists
+    actual_missing = len(missing_terms)
+    actual_found = len(found_terms)
+    
+    # Print the results with clear counts
+    print(f"\nProcessed {total_search_terms} terms:")
+    print(f"- Found: {actual_found} terms")
+    print(f"- Missing: {actual_missing} terms")
+    
+    # Display results based on user preference
+    if show_found:
+        if found_terms:
+            print(f"\nThe following {actual_found} terms had results in the target:")
+            for term in found_terms:
+                print(term)
+        else:
+            print("\nNo search terms had results in the target.")
+    else:
+        if missing_terms:
+            print(f"\nThe following {actual_missing} terms had no results in the target:")
+            for term in missing_terms:
+                print(term)
+        else:
+            print("\nAll search terms had results in the target.")
+
 def file_comparison(debug=False):
     """Interactive file comparison using directory listings and file ranges."""
     
@@ -327,41 +376,17 @@ def file_comparison(debug=False):
                 print(f"  - {filename}")
         print(f"Searching within all {len(dest_selected_files)} destination files.")
     
-    # Create temporary files with the selected filenames for comparison
-    import tempfile
+    # Ask user if they want to see found or missing results
+    print("\n=== Comparison Options ===")
+    show_found_input = input("Show found files instead of missing? (y/N): ").strip().lower()
+    show_found = show_found_input in ['y', 'yes', '1', 'true']
     
-    try:
-        # Create temporary file with source filenames
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as source_temp:
-            for filename in source_selected_files:
-                source_temp.write(filename + '\n')
-            source_temp_path = source_temp.name
-        
-        # Create temporary file with destination filenames  
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tmp') as dest_temp:
-            for filename in dest_selected_files:
-                dest_temp.write(filename + '\n')
-            dest_temp_path = dest_temp.name
-        
-        # Ask user if they want to see found or missing results
-        print("\n=== Comparison Options ===")
-        show_found_input = input("Show found files instead of missing? (y/N): ").strip().lower()
-        show_found = show_found_input in ['y', 'yes', '1', 'true']
-        
-        print(f"\n=== Comparing Files ===")
-        print(f"Source: {len(source_selected_files)} files from '{source_dir}'")
-        print(f"Target: {len(dest_selected_files)} files from '{dest_dir}'")
-        
-        # Use existing comparison logic
-        check_missing_results(source_temp_path, dest_temp_path, show_found)
-        
-    finally:
-        # Clean up temporary files
-        try:
-            os.unlink(source_temp_path)
-            os.unlink(dest_temp_path)
-        except:
-            pass  # Ignore cleanup errors
+    print(f"\n=== Comparing Files ===")
+    print(f"Source: {len(source_selected_files)} files from '{source_dir}'")
+    print(f"Target: {len(dest_selected_files)} files from '{dest_dir}'")
+    
+    # Perform comparison directly with in-memory lists
+    perform_direct_comparison(source_selected_files, dest_selected_files, show_found)
 
 if __name__ == "__main__":
     # Check for debug flag
