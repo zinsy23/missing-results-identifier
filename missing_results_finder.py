@@ -92,54 +92,76 @@ def check_missing_results(search_terms_file, target_file, show_found=False):
         else:
             print("\nAll search terms had results in the target file.")
 
-def perform_direct_comparison(search_terms, target_terms, show_found=False):
-    """Perform comparison directly with in-memory lists instead of files."""
-    total_search_terms = len(search_terms)
-    print(f"Comparing {total_search_terms} search terms against {len(target_terms)} target terms")
+def perform_bidirectional_comparison(source_files, dest_files, show_found=False):
+    """Perform bidirectional comparison between source and destination files."""
+    print(f"Comparing {len(source_files)} source files against {len(dest_files)} destination files")
     
-    missing_terms = []
-    found_terms = []
+    # Convert to lowercase for case-insensitive comparison
+    source_lower = [f.lower() for f in source_files]
+    dest_lower = [f.lower() for f in dest_files]
     
-    # Convert target terms to lowercase for case-insensitive comparison
-    target_terms_lower = [term.lower() for term in target_terms]
+    # Find files missing from destination (in source but not in destination)
+    source_missing_from_dest = []
+    for i, source_file in enumerate(source_files):
+        # Try full filename first
+        if source_file.lower() in dest_lower:
+            continue
+        # Try just the filename part
+        filename = extract_filename(source_file)
+        if filename.lower() in dest_lower:
+            continue
+        # Not found in destination
+        source_missing_from_dest.append(source_file)
     
-    # Check each search term
-    for term in search_terms:
-        # First try the full term (case-insensitive)
-        if term.lower() in target_terms_lower:
-            found_terms.append(term)
-        else:
-            # Try just the filename part
-            filename = extract_filename(term)
-            if filename.lower() in target_terms_lower:
-                found_terms.append(term)
-            else:
-                missing_terms.append(term)
+    # Find files missing from source (in destination but not in source)  
+    dest_missing_from_source = []
+    for i, dest_file in enumerate(dest_files):
+        # Try full filename first
+        if dest_file.lower() in source_lower:
+            continue
+        # Try just the filename part
+        filename = extract_filename(dest_file)
+        if filename.lower() in source_lower:
+            continue
+        # Not found in source
+        dest_missing_from_source.append(dest_file)
     
-    # Count actual terms in lists
-    actual_missing = len(missing_terms)
-    actual_found = len(found_terms)
+    # Calculate found counts
+    source_found_in_dest = len(source_files) - len(source_missing_from_dest)
+    dest_found_in_source = len(dest_files) - len(dest_missing_from_source)
     
-    # Print the results with clear counts
-    print(f"\nProcessed {total_search_terms} terms:")
-    print(f"- Found: {actual_found} terms")
-    print(f"- Missing: {actual_missing} terms")
+    # Print comprehensive results
+    print(f"\n=== Bidirectional Comparison Results ===")
+    print(f"Source files: {len(source_files)} total")
+    print(f"  - Found in destination: {source_found_in_dest}")
+    print(f"  - Missing from destination: {len(source_missing_from_dest)}")
+    
+    print(f"\nDestination files: {len(dest_files)} total")
+    print(f"  - Found in source: {dest_found_in_source}")
+    print(f"  - Missing from source (extra in destination): {len(dest_missing_from_source)}")
     
     # Display results based on user preference
     if show_found:
-        if found_terms:
-            print(f"\nThe following {actual_found} terms had results in the target:")
-            for term in found_terms:
-                print(term)
-        else:
-            print("\nNo search terms had results in the target.")
+        print(f"\n=== Files Found in Both Directories ===")
+        if source_found_in_dest > 0:
+            print(f"Source files found in destination ({source_found_in_dest} files):")
+            for source_file in source_files:
+                if source_file not in source_missing_from_dest:
+                    print(f"  {source_file}")
     else:
-        if missing_terms:
-            print(f"\nThe following {actual_missing} terms had no results in the target:")
-            for term in missing_terms:
-                print(term)
-        else:
-            print("\nAll search terms had results in the target.")
+        print(f"\n=== Missing Files ===")
+        if source_missing_from_dest:
+            print(f"Source files missing from destination ({len(source_missing_from_dest)} files):")
+            for file in source_missing_from_dest:
+                print(f"  {file}")
+        
+        if dest_missing_from_source:
+            print(f"\nDestination files missing from source ({len(dest_missing_from_source)} files):")
+            for file in dest_missing_from_source:
+                print(f"  {file}")
+        
+        if not source_missing_from_dest and not dest_missing_from_source:
+            print("All files are present in both directories.")
 
 def file_comparison(debug=False):
     """Interactive file comparison using directory listings and file ranges."""
@@ -290,10 +312,10 @@ def file_comparison(debug=False):
     print("- Ranges include all files alphabetically between start and end filenames")
     
     while True:
-        source_selection = input("\nEnter source file selection (or press Enter to skip and specify files from destination): ").strip()
+        source_selection = input("\nEnter source file selection (or press Enter to use all files): ").strip()
         if not source_selection:
-            print("Skipping source file selection - you'll specify files from destination instead.")
-            source_selected_files = []
+            print("Using all source files for comparison.")
+            source_selected_files = source_files
             break
         
         source_indices, source_missing_files = parse_file_selection(source_selection, source_files, allow_missing=True)
@@ -327,64 +349,27 @@ def file_comparison(debug=False):
         print("No files found in destination directory.")
         return
     
-    # Handle destination file selection based on whether source files were selected
-    if source_selected_files:
-        # Source files were selected, so destination can be all files or specific selection
-        print(f"\nDestination directory contains {len(dest_files)} files.")
-        use_all_dest = input("Use all destination files for comparison? (Y/n): ").strip().lower()
-        
-        if use_all_dest in ['', 'y', 'yes', '1', 'true']:
+    # Handle destination file selection
+    print(f"\nDestination directory contains {len(dest_files)} files.")
+    display_files_with_numbers(dest_files)
+    
+    while True:
+        dest_selection = input("\nEnter destination file selection (or press Enter to use all files): ").strip()
+        if not dest_selection:
             dest_selected_files = dest_files
             print(f"Using all {len(dest_selected_files)} destination files for comparison.")
-        else:
-            # Display destination files and get selection
-            display_files_with_numbers(dest_files)
-            
-            while True:
-                dest_selection = input("\nEnter destination file selection: ").strip()
-                if not dest_selection:
-                    print("Please enter a file selection.")
-                    continue
-                
-                dest_indices, dest_missing_files = parse_file_selection(dest_selection, dest_files, allow_missing=False)
-                if dest_indices:
-                    break
-                else:
-                    print("No valid files selected. Please try again.")
-            
+            break
+        
+        dest_indices, dest_missing_files = parse_file_selection(dest_selection, dest_files, allow_missing=False)
+        if dest_indices:
             dest_selected_files = get_selected_filenames(dest_files, dest_indices)
             print(f"\nSelected {len(dest_selected_files)} destination files" + (" (use --debug to see list)" if not debug else ":"))
             if debug:
                 for filename in dest_selected_files:
                     print(f"  - {filename}")
-    else:
-        # No source files selected, so we need to specify what we're looking for from destination
-        print(f"\nDestination directory contains {len(dest_files)} files.")
-        print("Since no source files were selected, specify the files you're looking for:")
-        display_files_with_numbers(dest_files)
-        
-        while True:
-            dest_selection = input("\nEnter files to search for (can include files not in destination): ").strip()
-            if not dest_selection:
-                print("Please enter a file selection.")
-                continue
-            
-            dest_indices, dest_missing_files = parse_file_selection(dest_selection, dest_files, allow_missing=True)
-            if dest_indices or dest_missing_files:
-                break
-            else:
-                print("No valid files selected. Please try again.")
-        
-        # In this case, the "search terms" are what we specified, and "target" is all dest files
-        source_selected_files = get_selected_filenames(dest_files, dest_indices)
-        source_selected_files.extend(dest_missing_files)
-        dest_selected_files = dest_files
-        
-        print(f"\nLooking for {len(source_selected_files)} files in destination" + (" (use --debug to see list)" if not debug else ":"))
-        if debug:
-            for filename in source_selected_files:
-                print(f"  - {filename}")
-        print(f"Searching within all {len(dest_selected_files)} destination files.")
+            break
+        else:
+            print("No valid files selected. Please try again.")
     
     # Ask user if they want to see found or missing results
     print("\n=== Comparison Options ===")
@@ -395,8 +380,8 @@ def file_comparison(debug=False):
     print(f"Source: {len(source_selected_files)} files from '{source_dir}'")
     print(f"Target: {len(dest_selected_files)} files from '{dest_dir}'")
     
-    # Perform comparison directly with in-memory lists
-    perform_direct_comparison(source_selected_files, dest_selected_files, show_found)
+    # Perform bidirectional comparison with in-memory lists
+    perform_bidirectional_comparison(source_selected_files, dest_selected_files, show_found)
 
 if __name__ == "__main__":
     # Check for debug flag
